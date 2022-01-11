@@ -3,7 +3,7 @@
 ## Author: Anonomit
 
 ## Title: ProxyTalksie
-## Notes: Remembers which hats and cloaks should be visible when equipped, and which should be hidden.
+## Notes: Allows a player to mirror another player's chat. Works even if the mirrored player does not have permission to chat (guild rank too low, account silenced).
 
 ## SavedVariables: ProxyTalksieDB
 
