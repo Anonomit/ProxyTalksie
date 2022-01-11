@@ -49,11 +49,12 @@ local OPTIONS_DIVIDER_HEIGHT = 3
 local OPTION_DEFAULTS = {
   profile = {
     
-    SAY   = true,
-    YELL  = true,
-    PARTY = false,
-    RAID  = false,
-    GUILD = false,
+    SAY     = true,
+    YELL    = true,
+    PARTY   = false,
+    RAID    = false,
+    GUILD   = false,
+    OFFICER = false,
     
     Server = false,
     Custom = true,
@@ -134,13 +135,18 @@ function Data:MakeOptionsTable(Addon, L)
   
   
   CreateDescription(L["Allowed Channels"])
-  CreateNewline() CreateToggle("SAY"   , CHAT_MSG_SAY)
-  CreateNewline() CreateToggle("YELL"  , CHAT_MSG_YELL)
-  CreateNewline() CreateToggle("PARTY" , CHAT_MSG_PARTY)
-  CreateNewline() CreateToggle("RAID"  , CHAT_MSG_RAID)
-  CreateNewline() CreateToggle("GUILD" , CHAT_MSG_GUILD)
-  CreateNewline() CreateToggle("Server", L["Server Channels"])
-  CreateNewline() CreateToggle("Custom", L["Custom Channels"])
+  CreateNewline()
+  CreateToggle("SAY"    , CHAT_MSG_SAY)
+  CreateToggle("YELL"   , CHAT_MSG_YELL)
+  CreateNewline()
+  CreateToggle("PARTY"  , CHAT_MSG_PARTY)
+  CreateToggle("RAID"   , CHAT_MSG_RAID)
+  CreateNewline()
+  CreateToggle("GUILD"  , CHAT_MSG_GUILD)
+  CreateToggle("OFFICER", CHAT_MSG_OFFICER)
+  CreateNewline()
+  CreateToggle("Server" , L["Server Channels"])
+  CreateToggle("Custom" , L["Custom Channels"])
   CreateNewline()
   
   
