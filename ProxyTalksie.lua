@@ -30,6 +30,22 @@ function ProxyTalksie:GetOption(key)
 end
 
 
+function ProxyTalksie:IsInSameGuild(player)
+  if IsInGuild() then
+    GuildRoster()
+    for i = 1, GetNumGuildMembers() do
+      local name = GetGuildRosterInfo(i)
+      if not name then break end
+      name = name:match"^[^%-]+"
+      if name == player then
+        return true
+      end
+    end
+  end
+  return false
+end
+
+
 
 function ProxyTalksie:PrintUsage()
   self:Printf(L["Usage:"])
@@ -175,15 +191,12 @@ function ProxyTalksie:HandleComm_Relay(sender, msg, channel, target)
     elseif channel == "RAID" and self:GetOption"RAID" and UnitInRaid(sender) then
       validChannel = true
     elseif channel == "GUILD" and self:GetOption"GUILD" then
-      if IsInGuild() then
-        GuildRoster()
-        for i = 1, GetNumGuildMembers() do
-          local name = GetGuildRosterInfo(i)
-          if not name then break end
-          if name == sender then
-            validChannel = true
-          end
-        end
+      if self:IsInSameGuild(sender) then
+        validChannel = true
+      end
+    elseif channel == "OFFICER" and self:GetOption"OFFICER" then
+      if self:IsInSameGuild(sender) then
+        validChannel = true
       end
     elseif IsInInstance() then
       if channel == "SAY" and self:GetOption"SAY" then
