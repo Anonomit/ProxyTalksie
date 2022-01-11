@@ -37,7 +37,7 @@ function ProxyTalksie:PrintUsage()
   self:Printf("    %s", L["Open options"])
   self:Printf("  /%s pair Name", Data.CHAT_COMMAND)
   self:Printf("    %s", L["Send a pair request to Name"])
-  self:Printf("  /%s unpair Name", Data.CHAT_COMMAND)
+  self:Printf("  /%s unpair [Name]", Data.CHAT_COMMAND)
   self:Printf("    %s", L["Unpair Name"])
 end
 

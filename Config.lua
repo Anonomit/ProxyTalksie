@@ -17,7 +17,7 @@ function Data:IsClassic()
 end
 
 
-Data.CHAT_COMMAND    = "proxy"
+Data.CHAT_COMMAND    = "pt"
 Data.ADDON_PREFIX    = "ProxyTalksie"
 Data.HEARTBEAT_EVENT = "ProxyTalksie Heartbeat"
 
