@@ -25,8 +25,21 @@ end
 function ProxyTalksie:GetDB()
   return self.db.profile
 end
-function ProxyTalksie:GetOption(key)
-  return self:GetDB()[key]
+function ProxyTalksie:GetOption(...)
+  local val = self:GetDB()
+  for _, key in ipairs{...} do
+    val = val[key]
+  end
+  return val
+end
+function ProxyTalksie:SetOption(val, ...)
+  local keys = {...}
+  local lastKey = table.remove(keys, #keys)
+  local tbl = self:GetDB()
+  for _, key in ipairs(keys) do
+    tbl = tbl[key]
+  end
+  tbl[lastKey] = val
 end
 
 
@@ -244,34 +257,34 @@ function ProxyTalksie:HandleComm_Relay(sender, msg, channel, target)
   if self.Talksies[sender] then
     local validChannel = false
     local hardwareRequired = false
-    if channel == "PARTY" and self:GetOption"PARTY" and UnitInParty(sender) then
+    if channel == "PARTY" and self:GetOption("Proxy", "Channels", "PARTY") and UnitInParty(sender) then
       validChannel = true
-    elseif channel == "RAID" and self:GetOption"RAID" and UnitInRaid(sender) then
+    elseif channel == "RAID" and self:GetOption("Proxy", "Channels", "RAID") and UnitInRaid(sender) then
       validChannel = true
-    elseif channel == "GUILD" and self:GetOption"GUILD" then
+    elseif channel == "GUILD" and self:GetOption("Proxy", "Channels", "GUILD") then
       if self:IsInSameGuild(sender) then
         validChannel = true
       end
-    elseif channel == "OFFICER" and self:GetOption"OFFICER" then
+    elseif channel == "OFFICER" and self:GetOption("Proxy", "Channels", "OFFICER") then
       if self:IsInSameGuild(sender) then
         validChannel = true
       end
     elseif IsInInstance() then
-      if channel == "SAY" and self:GetOption"SAY" then
+      if channel == "SAY" and self:GetOption("Proxy", "Channels", "SAY") then
         validChannel = true
-      elseif channel == "YELL" and self:GetOption"YELL" then
+      elseif channel == "YELL" and self:GetOption("Proxy", "Channels", "YELL") then
         validChannel = true
       end
     end
     if not validChannel then
       hardwareRequired = true
-      if channel == "SAY" and self:GetOption"SAY" then
+      if channel == "SAY" and self:GetOption("Proxy", "Channels", "SAY") then
         validChannel = true
-      elseif channel == "YELL" and self:GetOption"YELL" then
+      elseif channel == "YELL" and self:GetOption("Proxy", "Channels", "YELL") then
         validChannel = true
       elseif channel == "CHANNEL" then
         local isRestricted = false
-        for restrictedChannel in (self:GetDB().RestrictedChannels .. "\n"):gmatch"([^\n]+)" do
+        for restrictedChannel in (self:GetOption("Proxy", "RestrictedChannels") .. "\n"):gmatch"([^\n]+)" do
           if target == restrictedChannel:lower() then
             isRestricted = true
           end
@@ -284,7 +297,7 @@ function ProxyTalksie:HandleComm_Relay(sender, msg, channel, target)
               break
             end
           end
-          if custom and self:GetOption"custom" or not custom and self:GetOption"server" then
+          if custom and self:GetOption("Proxy", "ChannelCategories", "custom") or not custom and self:GetOption("Proxy", "ChannelCategories", "server") then
             local channels = {GetChannelList()}
             for i = 1, #channels, 3 do
               local id, name, disabled = channels[i], channels[i+1], channels[i+2]
@@ -300,7 +313,7 @@ function ProxyTalksie:HandleComm_Relay(sender, msg, channel, target)
       end
     end
     
-    local func = function() self.hooks.SendChatMessage(("%s%s"):format(self:GetOption("prefix"):format(sender), msg), channel, nil, validChannel) end
+    local func = function() self.hooks.SendChatMessage(("%s%s"):format(self:GetOption("Proxy", "prefix"):format(sender), msg), channel, nil, validChannel) end
     
     if validChannel then
       if hardwareRequired then
@@ -390,7 +403,7 @@ function ProxyTalksie:OnSendChatMessage(...)
       self:Printf(L["Message relayed to Proxy."])
     end
   end
-  if proxies <= 0 or Data.UNSUPPRESSED_CHANNELS[channel] or not self:GetOption"suppressChat" then
+  if proxies <= 0 or Data.UNSUPPRESSED_CHANNELS[channel] or not self:GetOption("Talksie", "suppressChat") then
     self.hooks.SendChatMessage(...)
   end
 end
@@ -427,9 +440,7 @@ end
 function ProxyTalksie:CreateOptions()
   local function SetDefault(category)
     return function()
-      for k, v in pairs(Data:GetDefaultOptions().profile) do
-        self:GetDB()[k] = v
-      end
+      AceDB:ResetProfile()
       self:Printf(L["Profile reset to default."])
       AceConfigRegistry:NotifyChange(category)
     end
@@ -448,7 +459,7 @@ function ProxyTalksie:CreateOptions()
   CreateCategory("Talksie" , Data:MakeTalksieOptionsTable(L["Talksie Configuration"], self, L))
   CreateCategory("Profiles", AceDBOptions:GetOptionsTable(self.db))
   
-  if self:GetDB().DEBUG.MENU then
+  if self:GetOption("DEBUG", "MENU") then
     CreateCategory("Debug" , Data:MakeDebugOptionsTable("Debug", self, L))
   end
   
