@@ -30,14 +30,19 @@ function ProxyTalksie:GetOption(key)
 end
 
 
+function ProxyTalksie:FixName(name)
+  name = name:sub(1, 1):upper() .. name:sub(2, #name):lower()
+  name = name:match"[^%-]*"
+  return name
+end
+
 function ProxyTalksie:IsInSameGuild(player)
   if IsInGuild() then
     GuildRoster()
     for i = 1, GetNumGuildMembers() do
       local name = GetGuildRosterInfo(i)
       if not name then break end
-      name = name:match"^[^%-]+"
-      if name == player then
+      if self:FixName(name) == player then
         return true
       end
     end
@@ -54,8 +59,32 @@ function ProxyTalksie:PrintUsage()
   self:Printf("    %s", L["Send a pair request to Name"])
   self:Printf("  /%s unpair [Name]", Data.CHAT_COMMAND)
   self:Printf("    %s", L["Unpair Name"])
+  self:Printf("  /%s list", Data.CHAT_COMMAND)
+  self:Printf("    %s", L["List active links"])
 end
 
+function ProxyTalksie:ListLinks()
+  local proxies = 0
+  local talksies = 0
+  for name in pairs(self.Proxies) do
+    proxies = proxies + 1
+  end
+  for name in pairs(self.Proxies) do
+    talksies = talksies + 1
+  end
+  if proxies == 0 and talksies == 0 then
+    self:Printf(L["You have no active links."])
+  else
+    self:Printf(L["Proxies:"] .. (proxies == 0 and " 0" or ""))
+    for name in pairs(self.Proxies) do
+      self:Printf("  %s", name)
+    end
+    self:Printf(L["Talksies:"] .. (talksies == 0 and " 0" or ""))
+    for name in pairs(self.Proxies) do
+      self:Printf("  %s", name)
+    end
+  end
+end
 
 function ProxyTalksie:OpenConfig(category, expandSection)
   InterfaceAddOnsList_Update()
@@ -90,14 +119,23 @@ function ProxyTalksie:ParseChatCommand(input)
     if not target then
       return false
     end
-    self.TentativeProxies[target:lower()] = self:ScheduleTimer(function() self:Printf(L["Pair attempt with %s has timed out"], target) end, Data.PAIR_REQUEST_TIMEOUT)
-    self:SendProxyRequest(target)
+    target = self:FixName(target)
+    if self.Proxies[target] then
+      self:Printf(L["%s is already an active Proxy."], target)
+    else
+      self:Printf(L["Sending pair request to %s"], target)
+      self.TentativeProxies[target] = self:ScheduleTimer(function() self:Printf(L["Pair attempt with %s has timed out"], target) end, Data.PAIR_REQUEST_TIMEOUT)
+      self:SendProxyRequest(target)
+    end
     return true
   elseif command == "unpair" then
     self:Unpair(target)
     return true
   elseif command == "config" or command == "options" then
     self:OpenConfig(ADDON_NAME, true)
+    return true
+  elseif command == "list" or command == "links" then
+    self:ListLinks()
     return true
   end
   return false
@@ -113,8 +151,8 @@ function ProxyTalksie:Unpair(target)
   local proxyTargets   = {}
   local talksieTargets = {}
   if target then
-    proxyTargets[target:lower()]   = true
-    talksieTargets[target:lower()] = true
+    proxyTargets[self:FixName(target)]   = true
+    talksieTargets[self:FixName(target)] = true
   else
     for name, time in pairs(self.Proxies) do
       proxyTargets[name] = true
@@ -140,7 +178,6 @@ function ProxyTalksie:Unpair(target)
 end
 
 function ProxyTalksie:SendProxyRequest(target)
-  self:Printf(L["Sending pair request to %s"], target)
   local data = AceSerializer:Serialize(Data.OP_CODES["PAIR_REQUEST"], {proxy = target, talksie = self.me})
   self:SendCommMessage(Data.ADDON_PREFIX, data, "WHISPER", target)
 end
@@ -169,30 +206,30 @@ end
 
 
 function ProxyTalksie:HandleComm_PairEstablished(sender, proxy, talksie)
-  if self:TimeLeft(self.TentativeProxies[sender:lower()]) > 0 then
+  if self:TimeLeft(self.TentativeProxies[sender]) > 0 then
     if proxy == sender and talksie == self.me then
       self:Printf(L["Link established. Paired to %s. Proxy: %s. Talksie: %s."], sender, sender, self.me)
-      self.Proxies[sender:lower()] = GetTime()
-      self:CancelTimer(self.TentativeProxies[sender:lower()])
+      self.Proxies[sender] = GetTime()
+      self:CancelTimer(self.TentativeProxies[sender])
       self:SendTalksieConfirmation(sender, Data.PAIR_ESTABLISH_TIMEOUT)
     end
   end
-  if self:TimeLeft(self.TentativeTalksies[sender:lower()]) > 0 then
+  if self:TimeLeft(self.TentativeTalksies[sender]) > 0 then
     if proxy == self.me and talksie == sender then
       self:Printf(L["Link established. Paired to %s. Proxy: %s. Talksie: %s."], sender, self.me, sender)
-      self.Talksies[sender:lower()] = GetTime()
-      self:CancelTimer(self.TentativeTalksies[sender:lower()])
+      self.Talksies[sender] = GetTime()
+      self:CancelTimer(self.TentativeTalksies[sender])
     end
   end
 end
 
 function ProxyTalksie:HandleComm_Unpair(target)
-  if self.Proxies[target:lower()] then
+  if self.Proxies[target] then
     if proxy == target and talksie == self.me then
       self:UnpairProxy(target)
     end
   end
-  if self.Talksies[target:lower()] then
+  if self.Talksies[target] then
     if proxy == self.me and talksie == target then
       self:UnpairTalksie(target)
     end
@@ -204,7 +241,7 @@ function ProxyTalksie:HandleComm_Relay(sender, msg, channel, target)
     target = target:lower()
   end
   
-  if self.Talksies[sender:lower()] then
+  if self.Talksies[sender] then
     local validChannel = false
     local hardwareRequired = false
     if channel == "PARTY" and self:GetOption"PARTY" and UnitInParty(sender) then
@@ -282,6 +319,7 @@ function ProxyTalksie:OnCommReceived(pre, data, channel, sender)
   if channel ~= "WHISPER" then return end
   local success, op, msg = AceSerializer:Deserialize(data)
   if not success then return end
+  sender = self:FixName(sender)
   
   if op == Data.OP_CODES["PAIR_REQUEST"] then
     StaticPopup_Show(("%s_CONFIRM_PAIR_REQUEST"):format(ADDON_NAME:upper()), sender, nil, sender)
@@ -292,22 +330,22 @@ function ProxyTalksie:OnCommReceived(pre, data, channel, sender)
   elseif op == Data.OP_CODES["RELAY"] then
     self:HandleComm_Relay(sender, msg.msg, msg.channel, msg.target)
   elseif op == Data.OP_CODES["HEARTBEAT"] then
-    if self.Proxies[sender:lower()] then
-      self.Proxies[sender:lower()] = GetTime()
+    if self.Proxies[sender] then
+      self.Proxies[sender] = GetTime()
     end
-    if self.Talksies[sender:lower()] then
-      self.Talksies[sender:lower()] = GetTime()
+    if self.Talksies[sender] then
+      self.Talksies[sender] = GetTime()
     end
   end
 end
 
 
 function ProxyTalksie:UnpairProxy(target)
-  self.Proxies[target:lower()] = nil
+  self.Proxies[target] = nil
   self:Printf(L["Unpaired with %s. Proxy: %s. Talksie: %s."], target, target, self.me)
 end
 function ProxyTalksie:UnpairTalksie(target)
-  self.Talksies[target:lower()] = nil
+  self.Talksies[target] = nil
   self:Printf(L["Unpaired with %s. Proxy: %s. Talksie: %s."], target, self.me, target)
 end
 
@@ -377,7 +415,7 @@ end
 
 
 function ProxyTalksie:CreateHooks()
-  self:RegisterComm(Data.ADDON_PREFIX)
+  self:RegisterComm(Data.ADDON_PREFIX, "OnCommReceived")
   
   self:RegisterMessage(Data.HEARTBEAT_EVENT, "OnHeartbeat")
   self:ScheduleRepeatingTimer(function(...) self:OnHeartbeat(...) end, Data.HEARTBEAT_PERIOD)

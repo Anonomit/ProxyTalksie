@@ -28,9 +28,14 @@ L["Usage:"] = "Usage:"
 L["Open options"] = "Open options"
 L["Send a pair request to Name"] = "Send a pair request to Name"
 L["Unpair Name"] = "Unpair Name"
+L["List active links"] = "List active links"
 
+L["You have no active links."] = "You have no active links."
+L["Proxies:"] = "Proxies:"
+L["Talksies:"] = "Talksies:"
 
-L["%s is requesting to proxy chat through you. Would you like to allow this?"] = "%s is requesting to proxy chat through you. Would you like to allow this?"
+L["%s is already an active Proxy."] = "%s is already an active Proxy."
+L["%s is requesting to proxy chat through you. Would you like to allow this?\n(Configure Proxy settings with: /pt config)"] = "%s is requesting to proxy chat through you. Would you like to allow this?\n(Configure Proxy settings with: /pt config)"
 L["Click to post hardware-locked messages"] = "Click to post hardware-locked messages"
 
 L["Sending pair request to %s"] = "Sending pair request to %s"

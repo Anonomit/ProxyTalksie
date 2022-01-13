@@ -202,14 +202,14 @@ end
 function Data:Init(Addon, L)
   StaticPopupDialogs[("%s_CONFIRM_PAIR_REQUEST"):format(ADDON_NAME:upper())] =
   {
-    text         = L["%s is requesting to proxy chat through you. Would you like to allow this?"],
+    text         = L["%s is requesting to proxy chat through you. Would you like to allow this?\n(Configure Proxy settings with: /pt config)"],
     button1      = YES,
     button2      = NO,
     timeout      = Data.PAIR_REQUEST_TIMEOUT,
     whileDead    = 1,
     hideOnEscape = 1,
     OnAccept = function(self, target)
-      Addon.TentativeTalksies[target:lower()] = Addon:ScheduleTimer(function() Addon:Printf(L["Pair attempt with %s has timed out"], target) end, Data.PAIR_ESTABLISH_TIMEOUT)
+      Addon.TentativeTalksies[target] = Addon:ScheduleTimer(function() Addon:Printf(L["Pair attempt with %s has timed out"], target) end, Data.PAIR_ESTABLISH_TIMEOUT)
       Addon:SendProxyConfirmation(target)
     end,
   }
