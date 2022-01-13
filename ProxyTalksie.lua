@@ -425,36 +425,35 @@ end
 
 
 function ProxyTalksie:CreateOptions()
-  local default = function()
-    for k, v in pairs(Data:GetDefaultOptions().profile) do
-      self:GetDB()[k] = v
+  local function SetDefault(category)
+    return function()
+      for k, v in pairs(Data:GetDefaultOptions().profile) do
+        self:GetDB()[k] = v
+      end
+      self:Printf(L["Profile reset to default."])
+      AceConfigRegistry:NotifyChange(category)
     end
-    AceConfigRegistry:NotifyChange(ADDON_NAME)
-    self:Printf(L["Profile reset to default."])
+  end
+  local function CreateCategory(categoryName, options)
+    local category = ("%s.%s"):format(ADDON_NAME, categoryName)
+    AceConfig:RegisterOptionsTable(category, options)
+    AceConfigDialog:AddToBlizOptions(category, categoryName, ADDON_NAME).default = SetDefault(category)
   end
   
+  
   AceConfig:RegisterOptionsTable(ADDON_NAME, Data:MakeOptionsTable(self, L))
-  AceConfigDialog:AddToBlizOptions(ADDON_NAME).default = default
+  AceConfigDialog:AddToBlizOptions(ADDON_NAME).default = SetDefault(ADDON_NAME)
   
-  local category = "Proxy"
-  AceConfig:RegisterOptionsTable(ADDON_NAME .. "." .. category, Data:MakeProxyOptionsTable(self, L))
-  AceConfigDialog:AddToBlizOptions(ADDON_NAME .. "." .. category, category, ADDON_NAME).default = default
-  
-  local category = "Talksie"
-  AceConfig:RegisterOptionsTable(ADDON_NAME .. "." .. category, Data:MakeTalksieOptionsTable(self, L))
-  AceConfigDialog:AddToBlizOptions(ADDON_NAME .. "." .. category, category, ADDON_NAME).default = default
-  
-  local category = "Profiles"
-  AceConfig:RegisterOptionsTable(ADDON_NAME .. "." .. category, AceDBOptions:GetOptionsTable(self.db))
-  AceConfigDialog:AddToBlizOptions(ADDON_NAME .. "." .. category, category, ADDON_NAME).default = default
-  
+  CreateCategory("Proxy"   , Data:MakeProxyOptionsTable(self, L))
+  CreateCategory("Talksie" , Data:MakeTalksieOptionsTable(self, L))
+  CreateCategory("Profiles", AceDBOptions:GetOptionsTable(self.db))
   
   self:RegisterChatCommand(Data.CHAT_COMMAND, "OnChatCommand", true)
 end
 
 
 
-function ProxyTalksie:OnInitialize()  
+function ProxyTalksie:OnInitialize()
   self.db = AceDB:New(("%sDB"):format(ADDON_NAME), Data:GetDefaultOptions(), true)
   
   self.me = UnitName"player"
@@ -468,8 +467,9 @@ end
 
 function ProxyTalksie:OnEnable()
   Data:Init(self, L)
-  self:CreateHooks()
+  
   self:CreateOptions()
+  self:CreateHooks()
 end
 
 function ProxyTalksie:OnDisable()
