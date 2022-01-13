@@ -46,7 +46,6 @@ function ProxyTalksie:IsInSameGuild(player)
 end
 
 
-
 function ProxyTalksie:PrintUsage()
   self:Printf(L["Usage:"])
   self:Printf("  /%s config", Data.CHAT_COMMAND)
@@ -57,9 +56,31 @@ function ProxyTalksie:PrintUsage()
   self:Printf("    %s", L["Unpair Name"])
 end
 
-function ProxyTalksie:OpenConfig(category)
+
+function ProxyTalksie:OpenConfig(category, expandSection)
   InterfaceAddOnsList_Update()
   InterfaceOptionsFrame_OpenToCategory(category)
+  
+  if expandSection then
+    -- Expand config if it's collapsed
+    local i = 1
+    while _G["InterfaceOptionsFrameAddOnsButton"..i] do
+      local frame = _G["InterfaceOptionsFrameAddOnsButton"..i]
+      if frame.element then
+        if frame.element.name == ADDON_NAME then
+          if frame.element.hasChildren and frame.element.collapsed then
+            if _G["InterfaceOptionsFrameAddOnsButton"..i.."Toggle"] and _G["InterfaceOptionsFrameAddOnsButton"..i.."Toggle"].Click then
+              _G["InterfaceOptionsFrameAddOnsButton"..i.."Toggle"]:Click()
+              break
+            end
+          end
+          break
+        end
+      end
+      
+      i = i + 1
+    end
+  end
 end
 
 function ProxyTalksie:ParseChatCommand(input)
@@ -76,7 +97,7 @@ function ProxyTalksie:ParseChatCommand(input)
     self:Unpair(target)
     return true
   elseif command == "config" or command == "options" then
-    self:OpenConfig(ADDON_NAME)
+    self:OpenConfig(ADDON_NAME, true)
     return true
   end
   return false
@@ -226,7 +247,7 @@ function ProxyTalksie:HandleComm_Relay(sender, msg, channel, target)
               break
             end
           end
-          if custom and self:GetOption"Custom" or not custom and self:GetOption"Server" then
+          if custom and self:GetOption"custom" or not custom and self:GetOption"server" then
             local channels = {GetChannelList()}
             for i = 1, #channels, 3 do
               local id, name, disabled = channels[i], channels[i+1], channels[i+2]
@@ -242,7 +263,7 @@ function ProxyTalksie:HandleComm_Relay(sender, msg, channel, target)
       end
     end
     
-    local func = function() self.SendChatMessage(("%s%s"):format(self:GetOption("prefix"):format(sender), msg), channel, nil, validChannel) end
+    local func = function() self.hooks.SendChatMessage(("%s%s"):format(self:GetOption("prefix"):format(sender), msg), channel, nil, validChannel) end
     
     if validChannel then
       if hardwareRequired then
@@ -305,21 +326,34 @@ function ProxyTalksie:Relay(proxy, msg, channel, target)
   self:SendCommMessage(Data.ADDON_PREFIX, data, "WHISPER", proxy)
 end
 
-function ProxyTalksie:OnSendChatMessage(msg, channel, language, target)
-  if target and type(target) == "number" then
+function ProxyTalksie:OnSendChatMessage(...)
+  local msg, channel, language, customChannel = ...
+  if customChannel and type(customChannel) == "number" then
     local channels = {GetChannelList()}
     for i = 1, #channels, 3 do
       local id, name, disabled = channels[i], channels[i+1], channels[i+2]
-      if target == id then
+      if customChannel == id then
         if not disabled then
-          target = name
+          customChannel = name
         end
         break
       end
     end
   end
+  local proxies = 0
   for proxy in pairs(self.Proxies) do
-    self:Relay(proxy, msg, channel, target)
+    self:Relay(proxy, msg, channel, customChannel)
+    proxies = proxies + 1
+  end
+  if not Data.UNSUPPRESSED_CHANNELS[channel] then
+    if proxies > 1 then
+      self:Printf(L["Message relayed to Proxies."])
+    elseif proxies > 0 then
+      self:Printf(L["Message relayed to Proxy."])
+    end
+  end
+  if proxies <= 0 or Data.UNSUPPRESSED_CHANNELS[channel] or not self:GetOption"suppressChat" then
+    self.hooks.SendChatMessage(...)
   end
 end
 
@@ -348,23 +382,34 @@ function ProxyTalksie:CreateHooks()
   self:RegisterMessage(Data.HEARTBEAT_EVENT, "OnHeartbeat")
   self:ScheduleRepeatingTimer(function(...) self:OnHeartbeat(...) end, Data.HEARTBEAT_PERIOD)
   
-  self:Hook(nil, "SendChatMessage", "OnSendChatMessage", true)
+  self:RawHook(nil, "SendChatMessage", "OnSendChatMessage", true)
 end
 
 
 function ProxyTalksie:CreateOptions()
-  AceConfig:RegisterOptionsTable(ADDON_NAME, Data:MakeOptionsTable(self, L))
-  local Panel = AceConfigDialog:AddToBlizOptions(ADDON_NAME)
-  Panel.default = function()
+  local default = function()
     for k, v in pairs(Data:GetDefaultOptions().profile) do
       self:GetDB()[k] = v
     end
     AceConfigRegistry:NotifyChange(ADDON_NAME)
+    self:Printf(L["Profile reset to default."])
   end
   
-  local profiles = AceDBOptions:GetOptionsTable(self.db)
-  AceConfig:RegisterOptionsTable(ADDON_NAME .. ".Profiles", profiles)
-  AceConfigDialog:AddToBlizOptions(ADDON_NAME .. ".Profiles", "Profiles", ADDON_NAME)
+  AceConfig:RegisterOptionsTable(ADDON_NAME, Data:MakeOptionsTable(self, L))
+  AceConfigDialog:AddToBlizOptions(ADDON_NAME).default = default
+  
+  local category = "Proxy"
+  AceConfig:RegisterOptionsTable(ADDON_NAME .. "." .. category, Data:MakeProxyOptionsTable(self, L))
+  AceConfigDialog:AddToBlizOptions(ADDON_NAME .. "." .. category, category, ADDON_NAME).default = default
+  
+  local category = "Talksie"
+  AceConfig:RegisterOptionsTable(ADDON_NAME .. "." .. category, Data:MakeTalksieOptionsTable(self, L))
+  AceConfigDialog:AddToBlizOptions(ADDON_NAME .. "." .. category, category, ADDON_NAME).default = default
+  
+  local category = "Profiles"
+  AceConfig:RegisterOptionsTable(ADDON_NAME .. "." .. category, AceDBOptions:GetOptionsTable(self.db))
+  AceConfigDialog:AddToBlizOptions(ADDON_NAME .. "." .. category, category, ADDON_NAME).default = default
+  
   
   self:RegisterChatCommand(Data.CHAT_COMMAND, "OnChatCommand", true)
 end
@@ -375,7 +420,6 @@ function ProxyTalksie:OnInitialize()
   self.db = AceDB:New(("%sDB"):format(ADDON_NAME), Data:GetDefaultOptions(), true)
   
   self.me = UnitName"player"
-  self.SendChatMessage = SendChatMessage
   
   self.TentativeProxies = {}
   self.TentativeTalksies = {}

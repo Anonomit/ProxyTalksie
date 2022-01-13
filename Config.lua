@@ -37,8 +37,14 @@ Data.OP_CODES = {
 }
 
 
-Data.RESTRICTED_CUSTOM_CHANNELS = {
-  ["world"] = true,
+Data.UNSUPPRESSED_CHANNELS = {
+  ["WHISPER"]       = true,
+  ["EMOTE"]         = true,
+  ["RAID_WARNING"]  = true,
+  ["INSTANCE_CHAT"] = true,
+  ["BATTLEGROUND"]  = true,
+  ["AFK"]           = true,
+  ["DND"]           = true,
 }
 
 
@@ -56,12 +62,14 @@ local OPTION_DEFAULTS = {
     GUILD   = false,
     OFFICER = false,
     
-    Server = false,
-    Custom = true,
+    server = false,
+    custom = true,
     
     RestrictedChannels = "world\nlfg",
     
     prefix = "%s: ",
+    
+    suppressChat = false,
     
     DEBUG = {
       MENU = false,
@@ -76,32 +84,54 @@ end
 
 
 
-local function GetOptionTableHelpers(Options, defaultOrder)
-  local Helpers = {}
+local function GetOptionTableHelpers(Options, defaultOrder, Addon)
+  local GUI = {}
   
   local order = defaultOrder or 99
-  function Helpers.Order(inc)
+  function GUI.Order(inc)
     order = order + (inc and inc or 0) + 1
     return order
   end
   
-  function Helpers.CreateHeader(name)
-    Options.args["divider" .. Helpers.Order()] = {name = name, order = Helpers.Order(-1), type = "header"}
+  function GUI.CreateHeader(name)
+    Options.args["divider " .. GUI.Order()] = {name = name, order = GUI.Order(-1), type = "header"}
   end
   
-  function Helpers.CreateDivider(count)
+  function GUI.CreateDivider(count)
     for i = 1, count or OPTIONS_DIVIDER_HEIGHT do
-      Options.args["divider" .. Helpers.Order()] = {name = "", order = Helpers.Order(-1), type = "description"}
+      Options.args["divider " .. GUI.Order()] = {name = "", order = GUI.Order(-1), type = "description"}
     end
   end
-  function Helpers.CreateNewline()
-    Helpers.CreateDivider(1)
+  function GUI.CreateNewline()
+    GUI.CreateDivider(1)
   end
-  function Helpers.CreateDescription(desc, fontSize)
-    Options.args["description" .. Helpers.Order()] = {name = desc, fontSize = fontSize or "large", order = Helpers.Order(-1), type = "description"}
+  function GUI.CreateDescription(desc, fontSize)
+    Options.args["description" .. GUI.Order()] = {name = desc, fontSize = fontSize or "large", order = GUI.Order(-1), type = "description"}
+  end
+  function GUI.CreateToggle(key, name, desc, inline)
+    Options.args["toggle " .. key] = {
+      name      = name,
+      desc      = desc,
+      order     = GUI.Order(),
+      type      = "toggle",
+      descStyle = inline and "inline" or nil,
+      set       = function(info, val)        Addon:GetDB()[key] = val end,
+      get       = function(info)      return Addon:GetDB()[key]       end,
+    }
+  end
+  function GUI.CreateInput(key, name, desc, multiline)
+    Options.args["input " .. key] = {
+      name      = name,
+      desc      = desc,
+      order     = GUI.Order(),
+      type      = "input",
+      multiline = multiline,
+      set       = function(info, val)        Addon:GetDB()[key] = val end,
+      get       = function(info)      return Addon:GetDB()[key]       end,
+    }
   end
   
-  return Helpers
+  return GUI
 end
 
 
@@ -110,68 +140,59 @@ function Data:MakeOptionsTable(Addon, L)
     type = "group",
     args = {}
   }
-  
-  local Helpers           = GetOptionTableHelpers(Options)
-  local Order             = Helpers.Order
-  local CreateHeader      = Helpers.CreateHeader
-  local CreateDivider     = Helpers.CreateDivider
-  local CreateNewline     = Helpers.CreateNewline
-  local CreateDescription = Helpers.CreateDescription
+  local GUI = GetOptionTableHelpers(Options, nil, Addon)
   
   
-  local db = Addon:GetDB()
+  GUI.CreateDescription(L["Proxy and Talksie configuration can be adjusted in the categories to the left."])
+  GUI.CreateDivider()
+  GUI.CreateDescription(L["Usage:"] .. " /pt", "medium")
   
-  
-  local function CreateToggle(key, name, desc)
-    Options.args[key] = {
-      name  = name,
-      desc  = desc,
-      order = Order(),
-      type  = "toggle",
-      set   = function(info, val)        Addon:GetDB()[key] = val end,
-      get   = function(info)      return Addon:GetDB()[key]       end,
-    }
-  end
-  
-  
-  CreateDescription(L["Allowed Channels"])
-  CreateNewline()
-  CreateToggle("SAY"    , CHAT_MSG_SAY)
-  CreateToggle("YELL"   , CHAT_MSG_YELL)
-  CreateNewline()
-  CreateToggle("PARTY"  , CHAT_MSG_PARTY)
-  CreateToggle("RAID"   , CHAT_MSG_RAID)
-  CreateNewline()
-  CreateToggle("GUILD"  , CHAT_MSG_GUILD)
-  CreateToggle("OFFICER", CHAT_MSG_OFFICER)
-  CreateNewline()
-  CreateToggle("Server" , L["Server Channels"])
-  CreateToggle("Custom" , L["Custom Channels"])
-  CreateNewline()
-  
-  
-  
-  Options.args["RestrictedChannels"] = {
-    name      = L["Restricted Custom Channels"],
-    desc      = L["You will not post messages in any custom channel listed here. List one channel per line."],
-    order     = Order(),
-    type      = "input",
-    multiline = true,
-    set       = function(info, val)        Addon:GetDB().RestrictedChannels = val:lower() end,
-    get       = function(info)      return Addon:GetDB().RestrictedChannels               end,
+  return Options
+end
+
+
+function Data:MakeProxyOptionsTable(Addon, L)
+  local Options = {
+    name = L["Proxy Configuration"],
+    type = "group",
+    args = {}
   }
+  local GUI = GetOptionTableHelpers(Options, nil, Addon)
   
-  CreateDivider(5)
   
-  Options.args["Prefix"] = {
-    name      = L["Prefix"],
-    desc      = L["This text will appear at the start of messages you say while serving as a proxy. %s will be replaced with the Talksie's name"],
-    order     = Order(),
-    type      = "input",
-    set       = function(info, val)        Addon:GetDB().prefix = val end,
-    get       = function(info)      return Addon:GetDB().prefix       end,
+  GUI.CreateDescription(L["Allowed Channels"], "medium")
+  GUI.CreateNewline()
+  GUI.CreateToggle("SAY"    , CHAT_MSG_SAY)
+  GUI.CreateToggle("YELL"   , CHAT_MSG_YELL)
+  GUI.CreateNewline()
+  GUI.CreateToggle("PARTY"  , CHAT_MSG_PARTY)
+  GUI.CreateToggle("RAID"   , CHAT_MSG_RAID)
+  GUI.CreateNewline()
+  GUI.CreateToggle("GUILD"  , CHAT_MSG_GUILD)
+  GUI.CreateToggle("OFFICER", CHAT_MSG_OFFICER)
+  GUI.CreateNewline()
+  GUI.CreateToggle("server" , L["Server Channels"], L["This refers to custom channels which are owned by Blizzard. Some examples are the General and Trade channels."])
+  GUI.CreateToggle("custom" , L["Custom Channels"], L["This referes to player-created custom channels, like World chat."])
+  
+  GUI.CreateNewline()
+  GUI.CreateInput("RestrictedChannels", L["Restricted Custom Channels"], L["You will not post messages in any custom channel listed here. List one channel per line."], true)
+  GUI.CreateDivider()
+  GUI.CreateInput("prefix", L["Prefix"], L["This text will appear at the start of messages you say while serving as a proxy. %s will be replaced with the Talksie's name."])
+  
+  return Options
+end
+
+
+function Data:MakeTalksieOptionsTable(Addon, L)
+  local Options = {
+    name = L["Talksie Configuration"],
+    type = "group",
+    args = {}
   }
+  local GUI = GetOptionTableHelpers(Options, nil, Addon)
   
+  
+  GUI.CreateToggle("suppressChat", L["Suppress Chat"], L["Enabling this option will prevent chat messages from being sent on most channels while you are a Talksie."])
   
   return Options
 end
