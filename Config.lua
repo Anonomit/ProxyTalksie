@@ -130,13 +130,23 @@ local function GetOptionTableHelpers(Options, defaultOrder, Addon)
       get       = function(info)      return Addon:GetDB()[key]       end,
     }
   end
+  function GUI.CreateExecute(key, name, desc, func)
+    Options.args["execute " .. key] = {
+      name  = name,
+      desc  = desc,
+      order = GUI.Order(),
+      type  = "execute",
+      func  = func,
+    }
+  end
   
   return GUI
 end
 
 
-function Data:MakeOptionsTable(Addon, L)
+function Data:MakeOptionsTable(title, Addon, L)
   local Options = {
+    name = title,
     type = "group",
     args = {}
   }
@@ -147,13 +157,18 @@ function Data:MakeOptionsTable(Addon, L)
   GUI.CreateDivider()
   GUI.CreateDescription(L["Usage:"] .. " /pt", "medium")
   
+  GUI.CreateDivider(10)
+  GUI.CreateExecute("ListLinks", L["List active links"], nil, function() Addon:ListLinks() end)
+  GUI.CreateNewline()
+  GUI.CreateExecute("UnpairAll", L["Unpair all"], nil, function() Addon:UnpairAll() end)
+  
   return Options
 end
 
 
-function Data:MakeProxyOptionsTable(Addon, L)
+function Data:MakeProxyOptionsTable(title, Addon, L)
   local Options = {
-    name = L["Proxy Configuration"],
+    name = title,
     type = "group",
     args = {}
   }
@@ -183,9 +198,9 @@ function Data:MakeProxyOptionsTable(Addon, L)
 end
 
 
-function Data:MakeTalksieOptionsTable(Addon, L)
+function Data:MakeTalksieOptionsTable(title, Addon, L)
   local Options = {
-    name = L["Talksie Configuration"],
+    name = title,
     type = "group",
     args = {}
   }
@@ -193,6 +208,18 @@ function Data:MakeTalksieOptionsTable(Addon, L)
   
   
   GUI.CreateToggle("suppressChat", L["Suppress Chat"], L["Enabling this option will prevent chat messages from being sent on most channels while you are a Talksie."])
+  
+  return Options
+end
+
+
+function Data:MakeDebugOptionsTable(title, Addon, L)
+  local Options = {
+    name = title,
+    type = "group",
+    args = {}
+  }
+  local GUI = GetOptionTableHelpers(Options, nil, Addon)
   
   return Options
 end

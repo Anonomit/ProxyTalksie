@@ -55,10 +55,10 @@ function ProxyTalksie:PrintUsage()
   self:Printf(L["Usage:"])
   self:Printf("  /%s config", Data.CHAT_COMMAND)
   self:Printf("    %s", L["Open options"])
-  self:Printf("  /%s pair Name", Data.CHAT_COMMAND)
+  self:Printf("  /%s pair %s", Data.CHAT_COMMAND, L["PlayerName"])
   self:Printf("    %s", L["Send a pair request to Name"])
-  self:Printf("  /%s unpair [Name]", Data.CHAT_COMMAND)
-  self:Printf("    %s", L["Unpair Name"])
+  self:Printf("  /%s unpair [%s]", Data.CHAT_COMMAND, L["PlayerName"])
+  self:Printf("    %s %s", L["Unpair"], L["PlayerName"])
   self:Printf("  /%s list", Data.CHAT_COMMAND)
   self:Printf("    %s", L["List active links"])
 end
@@ -441,12 +441,16 @@ function ProxyTalksie:CreateOptions()
   end
   
   
-  AceConfig:RegisterOptionsTable(ADDON_NAME, Data:MakeOptionsTable(self, L))
+  AceConfig:RegisterOptionsTable(ADDON_NAME, Data:MakeOptionsTable(ADDON_NAME, self, L))
   AceConfigDialog:AddToBlizOptions(ADDON_NAME).default = SetDefault(ADDON_NAME)
   
-  CreateCategory("Proxy"   , Data:MakeProxyOptionsTable(self, L))
-  CreateCategory("Talksie" , Data:MakeTalksieOptionsTable(self, L))
+  CreateCategory("Proxy"   , Data:MakeProxyOptionsTable(L["Proxy Configuration"], self, L))
+  CreateCategory("Talksie" , Data:MakeTalksieOptionsTable(L["Talksie Configuration"], self, L))
   CreateCategory("Profiles", AceDBOptions:GetOptionsTable(self.db))
+  
+  if self:GetDB().DEBUG.MENU then
+    CreateCategory("Debug" , Data:MakeDebugOptionsTable("Debug", self, L))
+  end
   
   self:RegisterChatCommand(Data.CHAT_COMMAND, "OnChatCommand", true)
 end

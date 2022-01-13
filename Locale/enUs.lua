@@ -4,6 +4,8 @@ local ADDON_NAME, Data = ...
 local L = LibStub("AceLocale-3.0"):NewLocale(ADDON_NAME, "enUS", true)
 
 L["Proxy and Talksie configuration can be adjusted in the categories to the left."] = "Proxy and Talksie configuration can be adjusted in the categories to the left."
+L["Unpair all"] = "Unpair all"
+
 L["Proxy Configuration"] = "Proxy Configuration"
 L["Talksie Configuration"] = "Talksie Configuration"
 
@@ -27,8 +29,9 @@ L["Profile reset to default."] = "Profile reset to default."
 L["Usage:"] = "Usage:"
 L["Open options"] = "Open options"
 L["Send a pair request to Name"] = "Send a pair request to Name"
-L["Unpair Name"] = "Unpair Name"
+L["Unpair"] = "Unpair"
 L["List active links"] = "List active links"
+L["PlayerName"] = "PlayerName"
 
 L["You have no active links."] = "You have no active links."
 L["Proxies:"] = "Proxies:"
