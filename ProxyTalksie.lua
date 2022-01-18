@@ -327,6 +327,7 @@ end
 
 
 function Addon:OnCommReceived(pre, data, channel, sender)
+  if not self:GetOption("Debug", "enabled") then return end
   if pre ~= Data.ADDON_PREFIX then return end
   if channel ~= "WHISPER" then return end
   local success, op, version, msg = AceSerializer:Deserialize(data)
@@ -337,7 +338,7 @@ function Addon:OnCommReceived(pre, data, channel, sender)
   if not (Version ^ self.Version) then
     if Version < self.Version then
       if op ~= Data.OP_CODES["VERSION"] then
-        self:SendAddonMessage("VERSION", "", sender)
+        self:SendAddonMessage("VERSION", nil, sender)
       end
     elseif Version > self.Version then
       self:Printf(L["Incompatible version detected. Please update to version %s or newer to use %s with %s"], tostring(Version), ADDON_NAME, sender)
@@ -388,6 +389,7 @@ function Addon:Relay(proxy, msg, channel, target)
 end
 
 function Addon:OnSendChatMessage(...)
+  if not self:GetOption("Debug", "enabled") then return end
   local msg, channel, language, customChannel = ...
   if customChannel and type(customChannel) == "number" then
     local channels = {GetChannelList()}
@@ -419,14 +421,15 @@ function Addon:OnSendChatMessage(...)
 end
 
 function Addon:OnHeartbeat()
+  if not self:GetOption("Debug", "enabled") then return end
   for target, time in pairs(self.Proxies) do
-    self:SendAddonMessage("HEARTBEAT", "", target)
+    self:SendAddonMessage("HEARTBEAT", nil, target)
     if GetTime() - time > Data.HEARTBEAT_TIMEOUT then
       self:UnpairProxy(target)
     end
   end
   for target, time in pairs(self.Talksies) do
-    self:SendAddonMessage("HEARTBEAT", "", target)
+    self:SendAddonMessage("HEARTBEAT", nil, target)
     if GetTime() - time > Data.HEARTBEAT_TIMEOUT then
       self:UnpairTalksie(target)
     end
@@ -439,8 +442,7 @@ end
 function Addon:CreateHooks()
   self:RegisterComm(Data.ADDON_PREFIX, "OnCommReceived")
   
-  self:RegisterMessage(Data.HEARTBEAT_EVENT, "OnHeartbeat")
-  self:ScheduleRepeatingTimer(function(...) self:OnHeartbeat(...) end, Data.HEARTBEAT_PERIOD)
+  self:ScheduleRepeatingTimer(function() self:OnHeartbeat() end, Data.HEARTBEAT_PERIOD)
   
   self:RawHook(nil, "SendChatMessage", "OnSendChatMessage", true)
 end

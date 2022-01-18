@@ -19,13 +19,12 @@ end
 
 Data.CHAT_COMMAND    = "pt"
 Data.ADDON_PREFIX    = "ProxyTalksie"
-Data.HEARTBEAT_EVENT = "ProxyTalksie Heartbeat"
 
 
 Data.PAIR_REQUEST_TIMEOUT   = 2*60
 Data.PAIR_ESTABLISH_TIMEOUT = 5
-Data.HEARTBEAT_PERIOD       = 20
-Data.HEARTBEAT_TIMEOUT      = 55
+Data.HEARTBEAT_PERIOD       = 15
+Data.HEARTBEAT_TIMEOUT      = 60*2 + 5
 
 
 Data.OP_CODES = {
@@ -79,7 +78,8 @@ function Data:MakeDefaultOptions()
       },
       
       Debug = {
-        menu = false,
+        menu    = false,
+        enabled = true,
       },
     },
   }
@@ -244,6 +244,8 @@ function Data:MakeDebugOptionsTable(title, Addon, L)
     args = {}
   }
   local GUI = GetOptionTableHelpers(Options, Addon)
+  
+  GUI:CreateToggle({"Debug", "enabled"}, "Enabled")
   
   return Options
 end
