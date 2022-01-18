@@ -2,7 +2,8 @@
 
 local ADDON_NAME, Data = ...
 
-ProxyTalksie = LibStub("AceAddon-3.0"):NewAddon(ADDON_NAME, "AceConsole-3.0", "AceEvent-3.0", "AceComm-3.0", "AceHook-3.0", "AceTimer-3.0")
+local Addon = LibStub("AceAddon-3.0"):NewAddon(ADDON_NAME, "AceConsole-3.0", "AceEvent-3.0", "AceComm-3.0", "AceHook-3.0", "AceTimer-3.0")
+ProxyTalksie = Addon
 local L = LibStub("AceLocale-3.0"):GetLocale(ADDON_NAME)
 
 local AceConfig         = LibStub"AceConfig-3.0"
@@ -12,44 +13,68 @@ local AceDB             = LibStub"AceDB-3.0"
 local AceDBOptions      = LibStub"AceDBOptions-3.0"
 local AceSerializer     = LibStub"AceSerializer-3.0"
 
+local SemVer            = LibStub"SemVer"
+
+
 
 local ENABLED = true
 
 
-function ProxyTalksie:Toggle()
+function Addon:Toggle()
   ENABLED = not ENABLED
 end
 
 
 
-function ProxyTalksie:GetDB()
-  return self.db.profile
+function Addon:GetDB()
+  return self.db
 end
-function ProxyTalksie:GetOption(...)
-  local val = self:GetDB()
+function Addon:GetDefaultDB()
+  return self.dbDefault
+end
+function Addon:GetProfile()
+  return self:GetDB().profile
+end
+function Addon:GetDefaultProfile()
+  return self:GetDefaultDB().profile
+end
+local function GetOption(self, db, ...)
+  local val = db
   for _, key in ipairs{...} do
     val = val[key]
   end
   return val
 end
-function ProxyTalksie:SetOption(val, ...)
+function Addon:GetOption(...)
+  return GetOption(self, self:GetProfile(), ...)
+end
+function Addon:GetDefaultOption(...)
+  return GetOption(self, self:GetDefaultProfile(), ...)
+end
+local function SetOption(self, db, val, ...)
   local keys = {...}
   local lastKey = table.remove(keys, #keys)
-  local tbl = self:GetDB()
+  local tbl = db
   for _, key in ipairs(keys) do
     tbl = tbl[key]
   end
   tbl[lastKey] = val
 end
+function Addon:SetOption(val, ...)
+  return SetOption(self, self:GetProfile(), val, ...)
+end
+function Addon:ResetOption(...)
+  return self:SetOption(val, self:GetDefaultOptions(...))
+end
 
 
-function ProxyTalksie:FixName(name)
+function Addon:FixName(name)
   name = name:sub(1, 1):upper() .. name:sub(2, #name):lower()
   name = name:match"[^%-]*"
   return name
 end
 
-function ProxyTalksie:IsInSameGuild(player)
+function Addon:IsInSameGuild(player)
   if IsInGuild() then
     GuildRoster()
     for i = 1, GetNumGuildMembers() do
@@ -64,7 +89,7 @@ function ProxyTalksie:IsInSameGuild(player)
 end
 
 
-function ProxyTalksie:PrintUsage()
+function Addon:PrintUsage()
   self:Printf(L["Usage:"])
   self:Printf("  /%s config", Data.CHAT_COMMAND)
   self:Printf("    %s", L["Open options"])
@@ -76,7 +101,7 @@ function ProxyTalksie:PrintUsage()
   self:Printf("    %s", L["List active links"])
 end
 
-function ProxyTalksie:ListLinks()
+function Addon:ListLinks()
   local proxies = 0
   local talksies = 0
   for name in pairs(self.Proxies) do
@@ -99,33 +124,7 @@ function ProxyTalksie:ListLinks()
   end
 end
 
-function ProxyTalksie:OpenConfig(category, expandSection)
-  InterfaceAddOnsList_Update()
-  InterfaceOptionsFrame_OpenToCategory(category)
-  
-  if expandSection then
-    -- Expand config if it's collapsed
-    local i = 1
-    while _G["InterfaceOptionsFrameAddOnsButton"..i] do
-      local frame = _G["InterfaceOptionsFrameAddOnsButton"..i]
-      if frame.element then
-        if frame.element.name == ADDON_NAME then
-          if frame.element.hasChildren and frame.element.collapsed then
-            if _G["InterfaceOptionsFrameAddOnsButton"..i.."Toggle"] and _G["InterfaceOptionsFrameAddOnsButton"..i.."Toggle"].Click then
-              _G["InterfaceOptionsFrameAddOnsButton"..i.."Toggle"]:Click()
-              break
-            end
-          end
-          break
-        end
-      end
-      
-      i = i + 1
-    end
-  end
-end
-
-function ProxyTalksie:ParseChatCommand(input)
+function Addon:ParseChatCommand(input)
   local command, target = self:GetArgs(input, 2)
   command = command and command:lower() or nil
   if command == "pair" then
@@ -154,13 +153,13 @@ function ProxyTalksie:ParseChatCommand(input)
   return false
 end
 
-function ProxyTalksie:OnChatCommand(input)
+function Addon:OnChatCommand(input)
   if not self:ParseChatCommand(input) then
     self:PrintUsage()
   end
 end
 
-function ProxyTalksie:Unpair(target)
+function Addon:Unpair(target)
   local proxyTargets   = {}
   local talksieTargets = {}
   if target then
@@ -190,35 +189,35 @@ function ProxyTalksie:Unpair(target)
   end
 end
 
-function ProxyTalksie:SendProxyRequest(target)
-  local data = AceSerializer:Serialize(Data.OP_CODES["PAIR_REQUEST"], {proxy = target, talksie = self.me})
-  self:SendCommMessage(Data.ADDON_PREFIX, data, "WHISPER", target)
+function Addon:SendProxyRequest(target)
+  self:SendAddonMessage("PAIR_REQUEST", {proxy = target, talksie = self.me}, target)
 end
 
-function ProxyTalksie:SendProxyConfirmation(target)
-  local data = AceSerializer:Serialize(Data.OP_CODES["PAIR_ESTABLISH"], {proxy = self.me, talksie = target})
-  self:SendCommMessage(Data.ADDON_PREFIX, data, "WHISPER", target)
-end
-
-
-function ProxyTalksie:SendTalksieConfirmation(target)
-  local data = AceSerializer:Serialize(Data.OP_CODES["PAIR_ESTABLISH"], {proxy = target, talksie = self.me})
-  self:SendCommMessage(Data.ADDON_PREFIX, data, "WHISPER", target)
-end
-
-function ProxyTalksie:SendUnpairProxy(target)
-  local data = AceSerializer:Serialize(Data.OP_CODES["UNPAIR"], {proxy = target, talksie = self.me})
-  self:SendCommMessage(Data.ADDON_PREFIX, data, "WHISPER", target)
-end
-
-function ProxyTalksie:SendUnpairTalksie(target)
-  local data = AceSerializer:Serialize(Data.OP_CODES["UNPAIR"], {proxy = self.me, talksie = target})
-  self:SendCommMessage(Data.ADDON_PREFIX, data, "WHISPER", target)
+function Addon:SendProxyConfirmation(target)
+  self:SendAddonMessage("PAIR_ESTABLISH", {proxy = self.me, talksie = target}, target)
 end
 
 
+function Addon:SendTalksieConfirmation(target)
+  self:SendAddonMessage("PAIR_ESTABLISH", {proxy = target, talksie = self.me}, target)
+end
 
-function ProxyTalksie:HandleComm_PairEstablished(sender, proxy, talksie)
+function Addon:SendUnpairProxy(target)
+  self:SendAddonMessage("UNPAIR", {proxy = target, talksie = self.me}, target)
+end
+
+function Addon:SendUnpairTalksie(target)
+  self:SendAddonMessage("UNPAIR", {proxy = self.me, talksie = target}, target)
+end
+
+
+function Addon:SendAddonMessage(op, msg, target)
+  local data = AceSerializer:Serialize(Data.OP_CODES[op], tostring(self.Version), msg)
+  self:SendCommMessage(Data.ADDON_PREFIX, data, "WHISPER", target)
+end
+
+
+function Addon:HandleComm_PairEstablished(sender, proxy, talksie)
   if self:TimeLeft(self.TentativeProxies[sender]) > 0 then
     if proxy == sender and talksie == self.me then
       self:Printf(L["Link established. Paired to %s. Proxy: %s. Talksie: %s."], sender, sender, self.me)
@@ -236,7 +235,7 @@ function ProxyTalksie:HandleComm_PairEstablished(sender, proxy, talksie)
   end
 end
 
-function ProxyTalksie:HandleComm_Unpair(target)
+function Addon:HandleComm_Unpair(target)
   if self.Proxies[target] then
     if proxy == target and talksie == self.me then
       self:UnpairProxy(target)
@@ -249,7 +248,7 @@ function ProxyTalksie:HandleComm_Unpair(target)
   end
 end
 
-function ProxyTalksie:HandleComm_Relay(sender, msg, channel, target)
+function Addon:HandleComm_Relay(sender, msg, channel, target)
   if target then
     target = target:lower()
   end
@@ -284,7 +283,7 @@ function ProxyTalksie:HandleComm_Relay(sender, msg, channel, target)
         validChannel = true
       elseif channel == "CHANNEL" then
         local isRestricted = false
-        for restrictedChannel in (self:GetOption("Proxy", "RestrictedChannels") .. "\n"):gmatch"([^\n]+)" do
+        for restrictedChannel in (self:GetOption("Proxy", "restrictedChannels") .. "\n"):gmatch"([^\n]+)" do
           if target == restrictedChannel:lower() then
             isRestricted = true
           end
@@ -327,15 +326,27 @@ function ProxyTalksie:HandleComm_Relay(sender, msg, channel, target)
 end
 
 
-function ProxyTalksie:OnCommReceived(pre, data, channel, sender)
+function Addon:OnCommReceived(pre, data, channel, sender)
   if pre ~= Data.ADDON_PREFIX then return end
   if channel ~= "WHISPER" then return end
-  local success, op, msg = AceSerializer:Deserialize(data)
+  local success, op, version, msg = AceSerializer:Deserialize(data)
   if not success then return end
+  
   sender = self:FixName(sender)
+  local Version = SemVer(version)
+  if not (Version ^ self.Version) then
+    if Version < self.Version then
+      if op ~= Data.OP_CODES["VERSION"] then
+        self:SendAddonMessage("VERSION", "", sender)
+      end
+    elseif Version > self.Version then
+      self:Printf(L["Incompatible version detected. Please update to version %s or newer to use %s with %s"], tostring(Version), ADDON_NAME, sender)
+    end
+    return
+  end
   
   if op == Data.OP_CODES["PAIR_REQUEST"] then
-    StaticPopup_Show(("%s_CONFIRM_PAIR_REQUEST"):format(ADDON_NAME:upper()), sender, nil, sender)
+    StaticPopup_Show(("%s_CONFIRM_PAIR_REQUEST"):format(ADDON_NAME:upper()), sender, Data.CHAT_COMMAND, sender)
   elseif op == Data.OP_CODES["PAIR_ESTABLISH"] then
     self:HandleComm_PairEstablished(sender, msg.proxy, msg.talksie)
   elseif op == Data.OP_CODES["UNPAIR"] then
@@ -353,16 +364,16 @@ function ProxyTalksie:OnCommReceived(pre, data, channel, sender)
 end
 
 
-function ProxyTalksie:UnpairProxy(target)
+function Addon:UnpairProxy(target)
   self.Proxies[target] = nil
   self:Printf(L["Unpaired with %s. Proxy: %s. Talksie: %s."], target, target, self.me)
 end
-function ProxyTalksie:UnpairTalksie(target)
+function Addon:UnpairTalksie(target)
   self.Talksies[target] = nil
   self:Printf(L["Unpaired with %s. Proxy: %s. Talksie: %s."], target, self.me, target)
 end
 
-function ProxyTalksie:UnpairAll()
+function Addon:UnpairAll()
   for target in pairs(self.Proxies) do
     self:UnpairProxy(target)
   end
@@ -372,12 +383,11 @@ function ProxyTalksie:UnpairAll()
 end
 
 
-function ProxyTalksie:Relay(proxy, msg, channel, target)
-  local data = AceSerializer:Serialize(Data.OP_CODES["RELAY"], {msg = msg, channel = channel, target = target})
-  self:SendCommMessage(Data.ADDON_PREFIX, data, "WHISPER", proxy)
+function Addon:Relay(proxy, msg, channel, target)
+  self:SendAddonMessage("RELAY", {msg = msg, channel = channel, target = target}, proxy)
 end
 
-function ProxyTalksie:OnSendChatMessage(...)
+function Addon:OnSendChatMessage(...)
   local msg, channel, language, customChannel = ...
   if customChannel and type(customChannel) == "number" then
     local channels = {GetChannelList()}
@@ -408,16 +418,15 @@ function ProxyTalksie:OnSendChatMessage(...)
   end
 end
 
-function ProxyTalksie:OnHeartbeat()
-  local data = AceSerializer:Serialize(Data.OP_CODES["HEARTBEAT"], "")
+function Addon:OnHeartbeat()
   for target, time in pairs(self.Proxies) do
-    self:SendCommMessage(Data.ADDON_PREFIX, data, "WHISPER", target)
+    self:SendAddonMessage("HEARTBEAT", "", target)
     if GetTime() - time > Data.HEARTBEAT_TIMEOUT then
       self:UnpairProxy(target)
     end
   end
   for target, time in pairs(self.Talksies) do
-    self:SendCommMessage(Data.ADDON_PREFIX, data, "WHISPER", target)
+    self:SendAddonMessage("HEARTBEAT", "", target)
     if GetTime() - time > Data.HEARTBEAT_TIMEOUT then
       self:UnpairTalksie(target)
     end
@@ -427,7 +436,7 @@ end
 
 
 
-function ProxyTalksie:CreateHooks()
+function Addon:CreateHooks()
   self:RegisterComm(Data.ADDON_PREFIX, "OnCommReceived")
   
   self:RegisterMessage(Data.HEARTBEAT_EVENT, "OnHeartbeat")
@@ -437,55 +446,100 @@ function ProxyTalksie:CreateHooks()
 end
 
 
-function ProxyTalksie:CreateOptions()
-  local function SetDefault(category)
-    return function()
-      AceDB:ResetProfile()
-      self:Printf(L["Profile reset to default."])
-      AceConfigRegistry:NotifyChange(category)
+
+function Addon:OpenConfig(category, expandSection)
+  InterfaceAddOnsList_Update()
+  InterfaceOptionsFrame_OpenToCategory(category)
+  
+  if expandSection then
+    -- Expand config if it's collapsed
+    local i = 1
+    while _G["InterfaceOptionsFrameAddOnsButton"..i] do
+      local frame = _G["InterfaceOptionsFrameAddOnsButton"..i]
+      if frame.element then
+        if frame.element.name == ADDON_NAME then
+          if frame.element.hasChildren and frame.element.collapsed then
+            if _G["InterfaceOptionsFrameAddOnsButton"..i.."Toggle"] and _G["InterfaceOptionsFrameAddOnsButton"..i.."Toggle"].Click then
+              _G["InterfaceOptionsFrameAddOnsButton"..i.."Toggle"]:Click()
+              break
+            end
+          end
+          break
+        end
+      end
+      
+      i = i + 1
     end
   end
-  local function CreateCategory(categoryName, options)
-    local category = ("%s.%s"):format(ADDON_NAME, categoryName)
-    AceConfig:RegisterOptionsTable(category, options)
-    AceConfigDialog:AddToBlizOptions(category, categoryName, ADDON_NAME).default = SetDefault(category)
+end
+function Addon:MakeDefaultFunc(category)
+  return function()
+    self.db:ResetProfile()
+    self:InitDB()
+    self:Printf(L["Profile reset to default."])
+    AceConfigRegistry:NotifyChange(category)
+  end
+end
+function Addon:CreateOptionsCategory(categoryName, options)
+  local category = ADDON_NAME
+  if categoryName then
+    category = ("%s.%s"):format(category, categoryName)
+  end
+  AceConfig:RegisterOptionsTable(category, options)
+  local Panel = AceConfigDialog:AddToBlizOptions(category, categoryName, categoryName and ADDON_NAME or nil)
+  Panel.default = self:MakeDefaultFunc(category)
+  return Panel
+end
+
+function Addon:CreateOptions()
+  self:CreateOptionsCategory(nil, Data:MakeOptionsTable(ADDON_NAME, self, L))
+  
+  self:CreateOptionsCategory("Proxy"   , Data:MakeProxyOptionsTable(L["Proxy Configuration"], self, L))
+  self:CreateOptionsCategory("Talksie" , Data:MakeTalksieOptionsTable(L["Talksie Configuration"], self, L))
+  self:CreateOptionsCategory("Profiles", AceDBOptions:GetOptionsTable(self.db))
+  
+  if self:GetOption("Debug", "menu") then
+    self:CreateOptionsCategory("Debug" , Data:MakeDebugOptionsTable("Debug", self, L))
+  end
+end
+
+
+function Addon:InitDB()
+  local configVersion = self:GetOption"version"
+  if configVersion then
+    configVersion = SemVer(configVersion)
+    
+    -- Upgrade data schema here
   end
   
-  
-  AceConfig:RegisterOptionsTable(ADDON_NAME, Data:MakeOptionsTable(ADDON_NAME, self, L))
-  AceConfigDialog:AddToBlizOptions(ADDON_NAME).default = SetDefault(ADDON_NAME)
-  
-  CreateCategory("Proxy"   , Data:MakeProxyOptionsTable(L["Proxy Configuration"], self, L))
-  CreateCategory("Talksie" , Data:MakeTalksieOptionsTable(L["Talksie Configuration"], self, L))
-  CreateCategory("Profiles", AceDBOptions:GetOptionsTable(self.db))
-  
-  if self:GetOption("DEBUG", "MENU") then
-    CreateCategory("Debug" , Data:MakeDebugOptionsTable("Debug", self, L))
-  end
+  self:SetOption(tostring(self.Version), "version")
+end
+
+
+function Addon:OnInitialize()
+  self.db        = AceDB:New(("%sDB"):format(ADDON_NAME), Data:MakeDefaultOptions(), true)
+  self.dbdefault = AceDB:New(("%sDB_Default"):format(ADDON_NAME), Data:MakeDefaultOptions(), true)
   
   self:RegisterChatCommand(Data.CHAT_COMMAND, "OnChatCommand", true)
 end
 
-
-
-function ProxyTalksie:OnInitialize()
-  self.db = AceDB:New(("%sDB"):format(ADDON_NAME), Data:GetDefaultOptions(), true)
+function Addon:OnEnable()
+  self.me      = UnitName"player"
+  self.Version = SemVer(GetAddOnMetadata(ADDON_NAME, "Version"))
   
-  self.me = UnitName"player"
-  
-  self.TentativeProxies = {}
+  self.TentativeProxies  = {}
   self.TentativeTalksies = {}
-  self.Proxies = {}
-  self.Talksies = {}
-  self.ChannelQueue = {}
-end
-
-function ProxyTalksie:OnEnable()
+  self.Proxies           = {}
+  self.Talksies          = {}
+  self.ChannelQueue      = {}
+  
   Data:Init(self, L)
+  
+  self:InitDB()
   
   self:CreateOptions()
   self:CreateHooks()
 end
 
-function ProxyTalksie:OnDisable()
+function Addon:OnDisable()
 end

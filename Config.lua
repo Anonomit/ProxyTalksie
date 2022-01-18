@@ -29,11 +29,12 @@ Data.HEARTBEAT_TIMEOUT      = 55
 
 
 Data.OP_CODES = {
-  ["PAIR_REQUEST"] = 1,
+  ["PAIR_REQUEST"]   = 1,
   ["PAIR_ESTABLISH"] = 2,
-  ["UNPAIR"] = 3,
-  ["RELAY"] = 4,
-  ["HEARTBEAT"] = 5,
+  ["UNPAIR"]         = 3,
+  ["RELAY"]          = 4,
+  ["HEARTBEAT"]      = 5,
+  ["VERSION"]        = 6,
 }
 
 
@@ -49,105 +50,117 @@ Data.UNSUPPRESSED_CHANNELS = {
 
 
 
--- How spread out options are in interface options
-local OPTIONS_DIVIDER_HEIGHT = 3
-
-local OPTION_DEFAULTS = {
-  profile = {
-    
-    Proxy = {
-      Channels = {
-        SAY     = true,
-        YELL    = true,
-        PARTY   = false,
-        RAID    = false,
-        GUILD   = false,
-        OFFICER = false,
+function Data:MakeDefaultOptions()
+  return {
+    profile = {
+      
+      Proxy = {
+        Channels = {
+          SAY     = false,
+          YELL    = false,
+          PARTY   = true,
+          RAID    = true,
+          GUILD   = true,
+          OFFICER = false,
+        },
+        
+        ChannelCategories = {
+          server = false,
+          custom = true,
+        },
+        
+        restrictedChannels = "world\nlfg",
+        
+        prefix = "%s: ",
       },
       
-      ChannelCategories = {
-        server = false,
-        custom = true,
+      Talksie = {
+        suppressChat = false,
       },
       
-      RestrictedChannels = "world\nlfg",
-      
-      prefix = "%s: ",
+      Debug = {
+        menu = false,
+      },
     },
-    
-    Talksie = {
-      suppressChat = false,
-    },
-    
-    DEBUG = {
-      MENU = false,
-    },
-  },
-}
-
-function Data:GetDefaultOptions()
-  return OPTION_DEFAULTS
+  }
 end
 
 
 
 
-local function GetOptionTableHelpers(Options, defaultOrder, Addon)
+
+local function GetOptionTableHelpers(Options, Addon)
+  local defaultInc = 1000
+  local order      = 1000
+  
   local GUI = {}
   
-  local order = defaultOrder or 99
-  function GUI.Order(inc)
-    order = order + (inc and inc or 0) + 1
+  function GUI:GetOrder()
     return order
   end
-  
-  function GUI.CreateHeader(name)
-    Options.args["divider " .. GUI.Order()] = {name = name, order = GUI.Order(-1), type = "header"}
+  function GUI:SetOrder(newOrder)
+    order = newOrder
+  end
+  function GUI:Order(inc)
+    self:SetOrder(self:GetOrder() + (inc or defaultInc))
+    return self:GetOrder()
   end
   
-  function GUI.CreateDivider(count)
-    for i = 1, count or OPTIONS_DIVIDER_HEIGHT do
-      Options.args["divider " .. GUI.Order()] = {name = "", order = GUI.Order(-1), type = "description"}
+  function GUI:CreateEntry(key, name, desc, widgetType, order)
+    key = widgetType .. "_" .. (key or "")
+    Options.args[key] = {name = name, desc = desc, type = widgetType, order = order or self:Order()}
+    return Options.args[key]
+  end
+  
+  function GUI:CreateHeader(name)
+    local option = self:CreateEntry(self:Order(), name, nil, "header", self:Order(0))
+  end
+  
+  function GUI:CreateDescription(desc, fontSize)
+    local option = self:CreateEntry(self:Order(), desc, nil, "description", self:Order(0))
+    option.fontSize = fontSize or "large"
+  end
+  function GUI:CreateDivider(count)
+    for i = 1, count or 3 do
+      self:CreateDescription("", "small")
     end
   end
-  function GUI.CreateNewline()
-    GUI.CreateDivider(1)
+  function GUI:CreateNewline()
+    return self:CreateDivider(1)
   end
-  function GUI.CreateDescription(desc, fontSize)
-    Options.args["description" .. GUI.Order()] = {name = desc, fontSize = fontSize or "large", order = GUI.Order(-1), type = "description"}
+  
+  function GUI:CreateToggle(keys, name, desc, disabled)
+    if type(keys) ~= "table" then keys = {keys} end
+    local option = self:CreateEntry(table.concat(keys, "."), name, desc, "toggle")
+    option.disabled = disabled
+    option.set      = function(info, val)        Addon:SetOption(val, unpack(keys)) end
+    option.get      = function(info)      return Addon:GetOption(unpack(keys))      end
+    return option
   end
-  function GUI.CreateToggle(key, name, desc, inline)
-    if type(key) ~= "table" then key = {key} end
-    Options.args["toggle " .. table.concat(key, ".")] = {
-      name      = name,
-      desc      = desc,
-      order     = GUI.Order(),
-      type      = "toggle",
-      descStyle = inline and "inline" or nil,
-      set       = function(info, val)        Addon:SetOption(val, unpack(key)) end,
-      get       = function(info)      return Addon:GetOption(unpack(key))      end,
-    }
+  function GUI:CreateRange(keys, name, desc, min, max, step, disabled)
+    if type(keys) ~= "table" then keys = {keys} end
+    local option = self:CreateEntry(table.concat(keys, "."), name, desc, "range")
+    option.disabled = disabled
+    option.min      = min
+    option.max      = max
+    option.step     = step
+    option.set      = function(info, val)        Addon:SetOption(val, unpack(keys)) end
+    option.get      = function(info)      return Addon:GetOption(unpack(keys))      end
+    return option
   end
-  function GUI.CreateInput(key, name, desc, multiline)
-    if type(key) ~= "table" then key = {key} end
-    Options.args["input " .. table.concat(key, ".")] = {
-      name      = name,
-      desc      = desc,
-      order     = GUI.Order(),
-      type      = "input",
-      multiline = multiline,
-      set       = function(info, val)        Addon:SetOption(val, unpack(key)) end,
-      get       = function(info)      return Addon:GetOption(unpack(key))      end,
-    }
+  function GUI:CreateInput(keys, name, desc, multiline, disabled)
+    if type(keys) ~= "table" then keys = {keys} end
+    local option = self:CreateEntry(table.concat(keys, "."), name, desc, "input")
+    option.multiline = multiline
+    option.disabled  = disabled
+    option.set       = function(info, val)        Addon:SetOption(val, unpack(keys)) end
+    option.get       = function(info)      return Addon:GetOption(unpack(keys))      end
+    return option
   end
-  function GUI.CreateExecute(key, name, desc, func)
-    Options.args["execute " .. key] = {
-      name  = name,
-      desc  = desc,
-      order = GUI.Order(),
-      type  = "execute",
-      func  = func,
-    }
+  function GUI:CreateExecute(key, name, desc, func)
+    local option = self:CreateEntry(key, name, desc, "execute")
+    option.func = func
+    return option
   end
   
   return GUI
@@ -160,17 +173,18 @@ function Data:MakeOptionsTable(title, Addon, L)
     type = "group",
     args = {}
   }
-  local GUI = GetOptionTableHelpers(Options, nil, Addon)
+  local GUI = GetOptionTableHelpers(Options, Addon)
   
   
-  GUI.CreateDescription(L["Proxy and Talksie configuration can be adjusted in the categories to the left."])
-  GUI.CreateDivider()
-  GUI.CreateDescription(L["Usage:"] .. " /pt", "medium")
+  GUI:CreateDivider()
+  GUI:CreateDescription(L["Proxy and Talksie configuration can be adjusted in the categories to the left."])
+  GUI:CreateDivider()
+  GUI:CreateDescription(L["Usage:"] .. " /" .. Data.CHAT_COMMAND, "medium")
   
-  GUI.CreateDivider(10)
-  GUI.CreateExecute("ListLinks", L["List active links"], nil, function() Addon:ListLinks() end)
-  GUI.CreateNewline()
-  GUI.CreateExecute("UnpairAll", L["Unpair all"], nil, function() Addon:UnpairAll() end)
+  GUI:CreateDivider(10)
+  GUI:CreateExecute("ListLinks", L["List active links"], nil, function() Addon:ListLinks() end)
+  GUI:CreateNewline()
+  GUI:CreateExecute("UnpairAll", L["Unpair all"], nil, function() Addon:UnpairAll() end)
   
   return Options
 end
@@ -182,27 +196,27 @@ function Data:MakeProxyOptionsTable(title, Addon, L)
     type = "group",
     args = {}
   }
-  local GUI = GetOptionTableHelpers(Options, nil, Addon)
+  local GUI = GetOptionTableHelpers(Options, Addon)
   
   
-  GUI.CreateDescription(L["Allowed Channels"], "medium")
-  GUI.CreateNewline()
-  GUI.CreateToggle({"Proxy", "Channels", "SAY"}    , CHAT_MSG_SAY)
-  GUI.CreateToggle({"Proxy", "Channels", "YELL"}   , CHAT_MSG_YELL)
-  GUI.CreateNewline()
-  GUI.CreateToggle({"Proxy", "Channels", "PARTY"}  , CHAT_MSG_PARTY)
-  GUI.CreateToggle({"Proxy", "Channels", "RAID"}   , CHAT_MSG_RAID)
-  GUI.CreateNewline()
-  GUI.CreateToggle({"Proxy", "Channels", "GUILD"}  , CHAT_MSG_GUILD)
-  GUI.CreateToggle({"Proxy", "Channels", "OFFICER"}, CHAT_MSG_OFFICER)
-  GUI.CreateNewline()
-  GUI.CreateToggle({"Proxy", "Channels", "server"} , L["Server Channels"], L["This refers to custom channels which are owned by Blizzard. Some examples are the General and Trade channels."])
-  GUI.CreateToggle({"Proxy", "Channels", "custom"} , L["Custom Channels"], L["This referes to player-created custom channels, like World chat."])
+  GUI:CreateDescription(L["Allowed Channels"], "medium")
+  GUI:CreateNewline()
+  GUI:CreateToggle({"Proxy", "Channels", "SAY"}    , CHAT_MSG_SAY)
+  GUI:CreateToggle({"Proxy", "Channels", "YELL"}   , CHAT_MSG_YELL)
+  GUI:CreateNewline()
+  GUI:CreateToggle({"Proxy", "Channels", "PARTY"}  , CHAT_MSG_PARTY)
+  GUI:CreateToggle({"Proxy", "Channels", "RAID"}   , CHAT_MSG_RAID)
+  GUI:CreateNewline()
+  GUI:CreateToggle({"Proxy", "Channels", "GUILD"}  , CHAT_MSG_GUILD)
+  GUI:CreateToggle({"Proxy", "Channels", "OFFICER"}, CHAT_MSG_OFFICER)
+  GUI:CreateNewline()
+  GUI:CreateToggle({"Proxy", "Channels", "server"} , L["Server Channels"], L["This refers to custom channels which are owned by Blizzard. Some examples are the General and Trade channels."])
+  GUI:CreateToggle({"Proxy", "Channels", "custom"} , L["Custom Channels"], L["This referes to player-created custom channels, like World chat."])
   
-  GUI.CreateNewline()
-  GUI.CreateInput({"Proxy", "RestrictedChannels"}, L["Restricted Custom Channels"], L["You will not post messages in any custom channel listed here. List one channel per line."], true)
-  GUI.CreateDivider()
-  GUI.CreateInput({"Proxy", "prefix"}, L["Prefix"], L["This text will appear at the start of messages you say while serving as a proxy. %s will be replaced with the Talksie's name."])
+  GUI:CreateNewline()
+  GUI:CreateInput({"Proxy", "restrictedChannels"}, L["Restricted Custom Channels"], L["You will not post messages in any custom channel listed here. List one channel per line."], true)
+  GUI:CreateDivider()
+  GUI:CreateInput({"Proxy", "prefix"}, L["Prefix"], L["This text will appear at the start of messages you say while serving as a proxy. %s will be replaced with the Talksie's name."])
   
   return Options
 end
@@ -214,10 +228,10 @@ function Data:MakeTalksieOptionsTable(title, Addon, L)
     type = "group",
     args = {}
   }
-  local GUI = GetOptionTableHelpers(Options, nil, Addon)
+  local GUI = GetOptionTableHelpers(Options, Addon)
   
   
-  GUI.CreateToggle({"Talksie", "suppressChat"}, L["Suppress Chat"], L["Enabling this option will prevent chat messages from being sent on most channels while you are a Talksie."])
+  GUI:CreateToggle({"Talksie", "suppressChat"}, L["Suppress Chat"], L["Enabling this option will prevent chat messages from being sent on most channels while you are a Talksie."])
   
   return Options
 end
@@ -229,7 +243,7 @@ function Data:MakeDebugOptionsTable(title, Addon, L)
     type = "group",
     args = {}
   }
-  local GUI = GetOptionTableHelpers(Options, nil, Addon)
+  local GUI = GetOptionTableHelpers(Options, Addon)
   
   return Options
 end
@@ -239,7 +253,7 @@ end
 function Data:Init(Addon, L)
   StaticPopupDialogs[("%s_CONFIRM_PAIR_REQUEST"):format(ADDON_NAME:upper())] =
   {
-    text         = L["%s is requesting to proxy chat through you. Would you like to allow this?\n(Configure Proxy settings with: /pt config)"],
+    text         = L["%s is requesting to proxy chat through you. Would you like to allow this?\n(Configure Proxy settings with: /%s config)"],
     button1      = YES,
     button2      = NO,
     timeout      = Data.PAIR_REQUEST_TIMEOUT,

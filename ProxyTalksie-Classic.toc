@@ -7,8 +7,8 @@
 
 ## SavedVariables: ProxyTalksieDB
 
-## OptionalDeps: Ace3
-## X-Embeds: Ace3
+## OptionalDeps: Ace3, Semver
+## X-Embeds: Ace3, SemVer
 
 
 embeds.xml

@@ -37,8 +37,10 @@ L["You have no active links."] = "You have no active links."
 L["Proxies:"] = "Proxies:"
 L["Talksies:"] = "Talksies:"
 
+L["Incompatible version detected. Please update to version %s or newer to use %s with %s"] = "Incompatible version detected. Please update to version %s or newer to use %s with %s"
+
 L["%s is already an active Proxy."] = "%s is already an active Proxy."
-L["%s is requesting to proxy chat through you. Would you like to allow this?\n(Configure Proxy settings with: /pt config)"] = "%s is requesting to proxy chat through you. Would you like to allow this?\n(Configure Proxy settings with: /pt config)"
+L["%s is requesting to proxy chat through you. Would you like to allow this?\n(Configure Proxy settings with: /%s config)"] = "%s is requesting to proxy chat through you. Would you like to allow this?\n(Configure Proxy settings with: /%s config)"
 L["Click to post hardware-locked messages"] = "Click to post hardware-locked messages"
 
 L["Sending pair request to %s"] = "Sending pair request to %s"
