@@ -1,5 +1,5 @@
 ## Interface: 11401
-## Version: 0.0.0
+## Version: 1.0.0
 ## Author: Anonomit
 
 ## Title: ProxyTalksie
