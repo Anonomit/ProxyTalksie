@@ -507,27 +507,25 @@ end
 
 
 function Addon:InitDB()
-  local configVersion = self:GetOption"version"
-  if configVersion then
-    configVersion = SemVer(configVersion)
-    
-    -- Upgrade data schema here
-  end
+  local configVersion = SemVer(self:GetOption"version" or tostring(self.Version))
+  -- Update data schema here
   
   self:SetOption(tostring(self.Version), "version")
 end
 
 
 function Addon:OnInitialize()
-  self.db        = AceDB:New(("%sDB"):format(ADDON_NAME), Data:MakeDefaultOptions(), true)
+  self.db        = AceDB:New(("%sDB"):format(ADDON_NAME)        , Data:MakeDefaultOptions(), true)
   self.dbdefault = AceDB:New(("%sDB_Default"):format(ADDON_NAME), Data:MakeDefaultOptions(), true)
   
   self:RegisterChatCommand(Data.CHAT_COMMAND, "OnChatCommand", true)
 end
 
 function Addon:OnEnable()
-  self.me      = UnitName"player"
   self.Version = SemVer(GetAddOnMetadata(ADDON_NAME, "Version"))
+  self:InitDB()
+  
+  self.me = UnitName"player"
   
   self.TentativeProxies  = {}
   self.TentativeTalksies = {}
@@ -535,9 +533,8 @@ function Addon:OnEnable()
   self.Talksies          = {}
   self.ChannelQueue      = {}
   
-  Data:Init(self, L)
   
-  self:InitDB()
+  Data:Init(self, L)
   
   self:CreateOptions()
   self:CreateHooks()
