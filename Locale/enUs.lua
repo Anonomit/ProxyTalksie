@@ -28,7 +28,7 @@ L["Profile reset to default."] = "Profile reset to default."
 
 L["Usage:"] = "Usage:"
 L["Open options"] = "Open options"
-L["Send a pair request to Name"] = "Send a pair request to Name"
+L["Send a request to pair with a Proxy"] = "Send a request to pair with a Proxy"
 L["Unpair"] = "Unpair"
 L["List active links"] = "List active links"
 L["PlayerName"] = "PlayerName"
